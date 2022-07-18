@@ -1,11 +1,13 @@
 package wiremock
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 const (
@@ -150,6 +152,55 @@ func (c *Client) Verify(r *Request, expectedCount int64) (bool, error) {
 	}
 
 	return actualCount == expectedCount, nil
+}
+
+// Verify checks count of request sent.
+func (c *Client) FindRequests(r *Request) ([]*http.Request, error) {
+	requestBody, err := r.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("find requests: build error: %s", err.Error())
+	}
+
+	res, err := http.Post(fmt.Sprintf("%s/%s/requests/find", c.url, wiremockAdminURN), "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		return nil, fmt.Errorf("find requests: %s", err.Error())
+	}
+	defer res.Body.Close()
+
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("find requests: read response error: %s", err.Error())
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("find requests: bad response status: %d, response: %s", res.StatusCode, string(bodyBytes))
+	}
+
+	var findRequestsResponse struct {
+		Requests []struct {
+			Url    string `json:"url"`
+			Method string `json:"method"`
+			Body   string `json:"body"`
+		} `json:"requests"`
+	}
+
+	err = json.Unmarshal(bodyBytes, &findRequestsResponse)
+	if err != nil {
+		return nil, fmt.Errorf("find requests: read json error: %s", err.Error())
+	}
+
+	result := make([]*http.Request, 0)
+
+	for _, req := range findRequestsResponse.Requests {
+		req, err := http.NewRequest(req.Method, req.Url, bufio.NewReader(strings.NewReader(req.Body)))
+		if err != nil {
+			return nil, fmt.Errorf("find requests: create request error: %s", err.Error())
+		}
+
+		result = append(result, req)
+	}
+
+	return result, nil
 }
 
 // DeleteStubByID deletes stub by id.
