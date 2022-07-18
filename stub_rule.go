@@ -24,6 +24,7 @@ type URLMatcherInterface interface {
 
 type response struct {
 	body                   string
+	bodyFileName           string
 	headers                map[string]string
 	status                 int64
 	fixedDelayMilliseconds time.Duration
@@ -84,6 +85,14 @@ func (s *StubRule) WithBodyPattern(matcher ParamMatcher) *StubRule {
 // WillReturn sets response and returns *StubRule
 func (s *StubRule) WillReturn(body string, headers map[string]string, status int64) *StubRule {
 	s.response.body = body
+	s.response.headers = headers
+	s.response.status = status
+	return s
+}
+
+// WillReturn sets response and returns *StubRule
+func (s *StubRule) WillReturnFile(bodyFileName string, headers map[string]string, status int64) *StubRule {
+	s.response.bodyFileName = bodyFileName
 	s.response.headers = headers
 	s.response.status = status
 	return s
@@ -167,6 +176,7 @@ func (s *StubRule) MarshalJSON() ([]byte, error) {
 		Request                       *Request `json:"request"`
 		Response                      struct {
 			Body                   string            `json:"body,omitempty"`
+			BodyFileName           string            `json:"bodyFileName,omitempty"`
 			Headers                map[string]string `json:"headers,omitempty"`
 			Status                 int64             `json:"status,omitempty"`
 			FixedDelayMilliseconds int               `json:"fixedDelayMilliseconds,omitempty"`
@@ -177,6 +187,7 @@ func (s *StubRule) MarshalJSON() ([]byte, error) {
 	jsonStubRule.RequiredScenarioScenarioState = s.requiredScenarioState
 	jsonStubRule.NewScenarioState = s.newScenarioState
 	jsonStubRule.Response.Body = s.response.body
+	jsonStubRule.Response.BodyFileName = s.response.bodyFileName
 	jsonStubRule.Response.Headers = s.response.headers
 	jsonStubRule.Response.Status = s.response.status
 	jsonStubRule.Response.FixedDelayMilliseconds = int(s.response.fixedDelayMilliseconds.Milliseconds())
